@@ -1,46 +1,9 @@
-// Package breaker implements the circuit-breaker resiliency pattern for Go.
 package breaker
 
 import (
-	"errors"
-	"sync"
 	"sync/atomic"
 	"time"
 )
-
-// ErrBreakerOpen is the error returned from Run() when the function is not executed
-// because the breaker is currently open.
-var ErrBreakerOpen = errors.New("circuit breaker is open")
-
-const (
-	closed uint32 = iota
-	open
-	halfOpen
-)
-
-// Breaker implements the circuit-breaker resiliency pattern
-type Breaker struct {
-	errorThreshold, successThreshold int
-	timeout                          time.Duration
-
-	lock              sync.Mutex
-	state             uint32
-	errors, successes int
-	lastError         time.Time
-}
-
-// New constructs a new circuit-breaker that starts closed.
-// From closed, the breaker opens if "errorThreshold" errors are seen
-// without an error-free period of at least "timeout". From open, the
-// breaker half-closes after "timeout". From half-open, the breaker closes
-// after "successThreshold" consecutive successes, or opens on a single error.
-func New(errorThreshold, successThreshold int, timeout time.Duration) *Breaker {
-	return &Breaker{
-		errorThreshold:   errorThreshold,
-		successThreshold: successThreshold,
-		timeout:          timeout,
-	}
-}
 
 // Run will either return ErrBreakerOpen immediately if the circuit-breaker is
 // already open, or it will run the given function and pass along its return
@@ -107,28 +70,20 @@ func (b *Breaker) processResult(result error, panicValue interface{}) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
-	if result == nil && panicValue == nil {
-		if b.state == halfOpen {
-			b.successes++
-			if b.successes == b.successThreshold {
-				b.closeBreaker()
-			}
+	if result == nil && panicValue == nil && b.state == halfOpen {
+		b.successes++
+		if b.successes == b.config.SuccessThreshold {
+			b.closeBreaker()
 		}
+
 	} else {
-		if b.errors > 0 {
-			expiry := b.lastError.Add(b.timeout)
-			if time.Now().After(expiry) {
-				b.errors = 0
-			}
-		}
 
 		switch b.state {
 		case closed:
-			b.errors++
-			if b.errors == b.errorThreshold {
+			b.lastError = b.removeExpiredError()
+			b.lastError = append(b.lastError, time.Now())
+			if len(b.lastError) == b.config.ErrorThreshold {
 				b.openBreaker()
-			} else {
-				b.lastError = time.Now()
 			}
 		case halfOpen:
 			b.openBreaker()
@@ -146,7 +101,7 @@ func (b *Breaker) closeBreaker() {
 }
 
 func (b *Breaker) timer() {
-	time.Sleep(b.timeout)
+	time.Sleep(b.config.TimeoutOpen)
 
 	b.lock.Lock()
 	defer b.lock.Unlock()
@@ -155,7 +110,17 @@ func (b *Breaker) timer() {
 }
 
 func (b *Breaker) changeState(newState uint32) {
-	b.errors = 0
+	b.lastError = []time.Time{}
 	b.successes = 0
 	atomic.StoreUint32(&b.state, newState)
+}
+
+func (b *Breaker) removeExpiredError() []time.Time {
+	var newErrorList []time.Time
+	for _, v := range b.lastError {
+		if v.After(time.Now().Add(-b.config.TimeoutClosed)) {
+			newErrorList = append(newErrorList, v)
+		}
+	}
+	return newErrorList
 }

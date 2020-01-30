@@ -21,7 +21,7 @@ func returnsSuccess() error {
 }
 
 func TestBreakerErrorExpiry(t *testing.T) {
-	breaker := New(2, 1, 1*time.Second)
+	breaker := New(BreakerConfig{2, 1, 1 * time.Second, 1 * time.Second})
 
 	for i := 0; i < 3; i++ {
 		if err := breaker.Run(returnsError); err != errSomeError {
@@ -39,7 +39,7 @@ func TestBreakerErrorExpiry(t *testing.T) {
 }
 
 func TestBreakerPanicsCountAsErrors(t *testing.T) {
-	breaker := New(3, 2, 1*time.Second)
+	breaker := New(BreakerConfig{3, 2, 1 * time.Second, 1 * time.Second})
 
 	// three errors opens the breaker
 	for i := 0; i < 3; i++ {
@@ -66,7 +66,7 @@ func TestBreakerPanicsCountAsErrors(t *testing.T) {
 }
 
 func TestBreakerStateTransitions(t *testing.T) {
-	breaker := New(3, 2, 1*time.Second)
+	breaker := New(BreakerConfig{3, 2, 1 * time.Second, 1 * time.Second})
 
 	// three errors opens the breaker
 	for i := 0; i < 3; i++ {
@@ -116,7 +116,7 @@ func TestBreakerStateTransitions(t *testing.T) {
 }
 
 func TestBreakerAsyncStateTransitions(t *testing.T) {
-	breaker := New(3, 2, 1*time.Second)
+	breaker := New(BreakerConfig{3, 2, 1 * time.Second, 1 * time.Second})
 
 	// three errors opens the breaker
 	for i := 0; i < 3; i++ {
@@ -175,7 +175,7 @@ func TestBreakerAsyncStateTransitions(t *testing.T) {
 }
 
 func ExampleBreaker() {
-	breaker := New(3, 1, 5*time.Second)
+	breaker := New(BreakerConfig{3, 1, 5 * time.Second, 5 * time.Second})
 
 	for {
 		result := breaker.Run(func() error {

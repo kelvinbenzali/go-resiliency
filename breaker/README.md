@@ -8,12 +8,20 @@ circuit-breaker
 The circuit-breaker resiliency pattern for golang.
 
 Creating a breaker takes three parameters:
-- error threshold (for opening the breaker)
-- success threshold (for closing the breaker)
-- timeout (how long to keep the breaker open)
+- error threshold (for opening the breaker after error reached threshold within the timeout closed window time)
+- success threshold (for closing the breaker after consecutive number of success threshold reached)
+- timeout closed (window time after the first error detected when breaker closed)
+- timeout open (how long to keep the breaker open before changing state to half-open)
 
 ```go
-b := breaker.New(3, 1, 5*time.Second)
+b := breaker.New(
+    BreakerConfig{
+    	ErrorThreshold:     3,
+        SuccessThreshold:   1, 
+        TimeoutClosed:      5*time.Second,
+        TimeoutOpen:        5*time.Second,
+    }
+)
 
 for {
 	result := b.Run(func() error {

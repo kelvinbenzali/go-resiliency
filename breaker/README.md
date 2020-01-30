@@ -7,7 +7,7 @@ circuit-breaker
 
 The circuit-breaker resiliency pattern for golang.
 
-Creating a breaker takes three parameters:
+Creating a breaker takes four parameters:
 - error threshold (for opening the breaker after error reached threshold within the timeout closed window time)
 - success threshold (for closing the breaker after consecutive number of success threshold reached)
 - timeout closed (window time after the first error detected when breaker closed)
